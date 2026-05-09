@@ -17,6 +17,8 @@
 (() => {
   "use strict";
 
+  const MAX_MARKDOWN_BYTES = 1024 * 1024;
+
   // ─────────────────────────────────────────────────────────────────────
   // Bootstrap
   // ─────────────────────────────────────────────────────────────────────
@@ -52,6 +54,11 @@
   function onLoadFile(e) {
     const file = e.target.files[0];
     if (!file) return;
+    if (file.size > MAX_MARKDOWN_BYTES) {
+      e.target.value = "";
+      setStatus(`File is too large. Limit is ${formatBytes(MAX_MARKDOWN_BYTES)}.`, "error");
+      return;
+    }
     const reader = new FileReader();
     reader.onload = () => {
       document.getElementById("md-input").value = reader.result;
@@ -62,10 +69,21 @@
   }
 
   function onPreview() {
-    const md = preprocess(document.getElementById("md-input").value);
-    const previewEl = document.getElementById("preview");
-    previewEl.replaceChildren(window.marked ? renderPreview(marked.lexer(md)) : plainPreview(md));
-    previewEl.hidden = false;
+    setProcessing(true);
+    try {
+      const raw = document.getElementById("md-input").value;
+      if (!isWithinSizeLimit(raw)) return;
+      const md = preprocess(raw);
+      const previewEl = document.getElementById("preview");
+      previewEl.replaceChildren(window.marked ? renderPreview(marked.lexer(md)) : plainPreview(md));
+      previewEl.hidden = false;
+      setStatus("");
+    } catch (err) {
+      console.error(err);
+      setStatus(`Preview error: ${err.message || err}`, "error");
+    } finally {
+      setProcessing(false);
+    }
   }
 
   function onClear() {
@@ -78,13 +96,16 @@
     const raw = document.getElementById("md-input").value;
     if (!raw.trim()) { setStatus("Nothing to insert.", "error"); return; }
     if (!window.marked) { setStatus("Markdown parser failed to load.", "error"); return; }
+    if (!isWithinSizeLimit(raw)) return;
 
-    setStatus("Inserting…");
-    const md = preprocess(raw);
-    const tokens = marked.lexer(md);
-    const replaceSel = document.getElementById("opt-replace").checked;
-
+    let tokens;
     try {
+      setProcessing(true);
+      setStatus("Inserting…");
+      const md = preprocess(raw);
+      tokens = marked.lexer(md);
+      const replaceSel = document.getElementById("opt-replace").checked;
+
       await Word.run(async (context) => {
         const sel = context.document.getSelection();
         if (replaceSel) sel.delete();
@@ -99,6 +120,8 @@
     } catch (err) {
       console.error(err);
       setStatus(`Error: ${err.message || err}`, "error");
+    } finally {
+      setProcessing(false);
     }
   }
 
@@ -314,8 +337,9 @@
           const text = extractText(t) || t.href || "";
           const r = paragraph.insertText(text, "End");
           applyFormat(r, format);
-          if (t.href) {
-            try { r.hyperlink = t.href; } catch (_) {}
+          const href = getSafeUrl(t.href);
+          if (href) {
+            try { r.hyperlink = href; } catch (_) {}
           }
           break;
         }
@@ -331,7 +355,8 @@
         case "autolink": {
           const r = paragraph.insertText(t.text || t.href, "End");
           applyFormat(r, format);
-          if (t.href) { try { r.hyperlink = t.href; } catch (_) {} }
+          const href = getSafeUrl(t.href);
+          if (href) { try { r.hyperlink = href; } catch (_) {} }
           break;
         }
         default: {
@@ -516,8 +541,9 @@
         case "autolink": {
           const el = document.createElement("a");
           el.textContent = extractText(token) || token.text || token.href || "";
-          if (isSafePreviewUrl(token.href)) {
-            el.href = token.href;
+          const href = getSafeUrl(token.href);
+          if (href) {
+            el.href = href;
             el.rel = "noreferrer";
           }
           parent.appendChild(el);
@@ -543,14 +569,32 @@
     }
   }
 
-  function isSafePreviewUrl(url) {
+  function getSafeUrl(url) {
     if (!url) return false;
     try {
       const parsed = new URL(url, window.location.href);
-      return ["http:", "https:", "mailto:"].includes(parsed.protocol);
+      if (!["http:", "https:", "mailto:"].includes(parsed.protocol)) return "";
+      return parsed.href;
     } catch (_) {
-      return false;
+      return "";
     }
+  }
+
+  function isWithinSizeLimit(text) {
+    const bytes = new Blob([text]).size;
+    if (bytes <= MAX_MARKDOWN_BYTES) return true;
+    setStatus(`Markdown is too large. Limit is ${formatBytes(MAX_MARKDOWN_BYTES)}.`, "error");
+    return false;
+  }
+
+  function setProcessing(isProcessing) {
+    for (const id of ["insert-btn", "preview-btn", "clear-btn", "file-input"]) {
+      document.getElementById(id).disabled = isProcessing;
+    }
+  }
+
+  function formatBytes(bytes) {
+    return `${Math.round(bytes / 1024 / 1024)} MB`;
   }
 
   function setStatus(msg, kind) {

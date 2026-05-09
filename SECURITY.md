@@ -32,3 +32,5 @@ transmit, or persist document content.
 ## Release checks
 
 Run `npm run check` before publishing a new manifest or hosted package.
+The check verifies JavaScript syntax, CSP guardrails, self-hosted parser usage,
+and the SHA-256 hash of the vendored `marked` bundle.
