@@ -1,0 +1,14 @@
+{
+  "name": "word-md",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Word task pane add-in for inserting Markdown as native Word content.",
+  "type": "module",
+  "scripts": {
+    "check": "node --check taskpane.js && node scripts/validate.mjs",
+    "validate": "node scripts/validate.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

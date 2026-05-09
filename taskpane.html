@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://appsforoffice.microsoft.com; style-src 'self'; img-src 'self' data:; connect-src 'self'; base-uri 'none'; form-action 'none'">
+  <title>word-md</title>
+  <script src="https://appsforoffice.microsoft.com/lib/1.1/hosted/office.js"></script>
+  <script src="vendor/marked.min.js"></script>
+  <link rel="stylesheet" href="taskpane.css">
+</head>
+<body>
+  <header>
+    <h1>word-md</h1>
+    <p class="hint">
+      Paste Markdown below or load a <code>.md</code> file. <strong>Insert</strong> writes
+      it to the document at the cursor with Word styles applied.
+    </p>
+  </header>
+
+  <main>
+    <div class="toolbar">
+      <label class="file-button">
+        <input type="file" id="file-input" accept=".md,.markdown,.txt,.mdx">
+        <span>Load file&hellip;</span>
+      </label>
+    </div>
+
+    <textarea id="md-input" spellcheck="false"
+      placeholder="# Hello&#10;&#10;Paste your **Markdown** here&hellip;"></textarea>
+
+    <fieldset class="options">
+      <legend>Options</legend>
+      <label><input type="checkbox" id="opt-replace"> Replace selection (otherwise insert after)</label>
+      <label><input type="checkbox" id="opt-smart-quotes"> Convert straight quotes to typographic</label>
+      <label><input type="checkbox" id="opt-strip-frontmatter" checked> Strip YAML frontmatter</label>
+    </fieldset>
+
+    <div class="actions">
+      <button id="insert-btn" class="primary">Insert</button>
+      <button id="preview-btn">Preview</button>
+      <button id="clear-btn">Clear</button>
+    </div>
+
+    <div id="preview" class="preview" hidden></div>
+    <div id="status" class="status" aria-live="polite"></div>
+  </main>
+
+  <footer>
+    <details>
+      <summary>Style mapping</summary>
+      <table>
+        <tr><th>Markdown</th><th>Word style</th></tr>
+        <tr><td><code># H1</code> &hellip; <code>###### H6</code></td><td>Heading 1&ndash;6</td></tr>
+        <tr><td>Paragraph</td><td>Normal</td></tr>
+        <tr><td>* / - bullet list</td><td>List Bullet</td></tr>
+        <tr><td>1. ordered list</td><td>List Number</td></tr>
+        <tr><td>&gt; blockquote</td><td>Quote</td></tr>
+        <tr><td>``` fenced code ```</td><td>HTML Preformatted</td></tr>
+        <tr><td><code>`code`</code> span</td><td>Consolas, light grey shade</td></tr>
+        <tr><td>[link](url)</td><td>Hyperlink + Hyperlink character style</td></tr>
+        <tr><td>| pipe | table |</td><td>Word table (Grid Table 4 - Accent 1)</td></tr>
+        <tr><td>---</td><td>Horizontal rule (paragraph border)</td></tr>
+      </table>
+    </details>
+  </footer>
+
+  <script src="taskpane.js"></script>
+</body>
+</html>

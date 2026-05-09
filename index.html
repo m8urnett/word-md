@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>word-md</title>
+  <meta name="description" content="A Word add-in that pastes Markdown with proper styles applied.">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'unsafe-inline' 'self'; base-uri 'none'; form-action 'none'">
+  <link rel="icon" href="icons/icon-32.png">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --blue:       #2b579a;
+      --blue-dark:  #1e3f6f;
+      --blue-faint: #edf1f8;
+      --fg:         #1a1a1a;
+      --muted:      #555;
+      --border:     #d8d8d8;
+      --code-bg:    #f4f4f4;
+      --max:        680px;
+    }
+
+    html { font-size: 17px; }
+
+    body {
+      font-family: Georgia, 'Times New Roman', serif;
+      color: var(--fg);
+      background: #fdfcfb;
+      line-height: 1.65;
+      padding: 0 20px;
+    }
+
+    /* ── Layout ── */
+    .wrap {
+      max-width: var(--max);
+      margin: 0 auto;
+    }
+
+    /* ── Header ── */
+    header {
+      padding: 72px 0 48px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 24px;
+    }
+
+    .badge img {
+      width: 32px;
+      height: 32px;
+      border-radius: 6px;
+    }
+
+    .badge-label {
+      font-family: 'Courier New', monospace;
+      font-size: 0.82rem;
+      color: var(--blue);
+      letter-spacing: 0.04em;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      font-family: 'Courier New', monospace;
+      font-size: 3.2rem;
+      font-weight: 700;
+      color: var(--blue);
+      line-height: 1;
+      letter-spacing: -0.02em;
+      margin-bottom: 18px;
+    }
+
+    .tagline {
+      font-size: 1.2rem;
+      color: var(--muted);
+      font-style: italic;
+      max-width: 480px;
+      margin-bottom: 28px;
+    }
+
+    .actions {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .btn {
+      display: inline-block;
+      padding: 10px 20px;
+      font-family: 'Courier New', monospace;
+      font-size: 0.78rem;
+      font-weight: 700;
+      text-decoration: none;
+      border-radius: 4px;
+      letter-spacing: 0.03em;
+    }
+
+    .btn-primary {
+      background: var(--blue);
+      color: white;
+    }
+
+    .btn-primary:hover { background: var(--blue-dark); }
+
+    .btn-ghost {
+      border: 1.5px solid var(--border);
+      color: var(--fg);
+    }
+
+    .btn-ghost:hover { border-color: var(--blue); color: var(--blue); }
+
+    /* ── Body sections ── */
+    section {
+      padding: 48px 0;
+      border-bottom: 1px solid var(--border);
+    }
+
+    section:last-child { border-bottom: none; }
+
+    h2 {
+      font-family: 'Courier New', monospace;
+      font-size: 0.75rem;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--blue);
+      margin-bottom: 20px;
+    }
+
+    p { margin-bottom: 1em; color: var(--muted); }
+    p:last-child { margin-bottom: 0; }
+
+    /* ── Feature list ── */
+    .features {
+      list-style: none;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px 24px;
+    }
+
+    @media (max-width: 480px) { .features { grid-template-columns: 1fr; } }
+
+    .features li {
+      padding: 6px 0;
+      padding-left: 18px;
+      position: relative;
+      font-size: 0.95rem;
+      color: var(--fg);
+    }
+
+    .features li::before {
+      content: '↓';
+      position: absolute;
+      left: 0;
+      color: var(--blue);
+      font-family: 'Courier New', monospace;
+      font-size: 0.8rem;
+    }
+
+    /* ── Style map table ── */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.88rem;
+      margin-top: 4px;
+    }
+
+    th, td {
+      text-align: left;
+      padding: 8px 12px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    th {
+      font-family: 'Courier New', monospace;
+      font-size: 0.7rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+      background: var(--code-bg);
+    }
+
+    td:first-child {
+      font-family: 'Courier New', monospace;
+      font-size: 0.8rem;
+      color: var(--blue);
+      white-space: nowrap;
+    }
+
+    td:last-child { color: var(--muted); }
+
+    /* ── Install steps ── */
+    .platform + .platform { margin-top: 32px; }
+
+    .platform-title {
+      font-family: 'Courier New', monospace;
+      font-size: 0.78rem;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      color: var(--fg);
+      margin-bottom: 12px;
+    }
+
+    ol {
+      padding-left: 20px;
+    }
+
+    ol li {
+      margin-bottom: 6px;
+      font-size: 0.95rem;
+      color: var(--fg);
+    }
+
+    code {
+      font-family: 'Courier New', monospace;
+      font-size: 0.82em;
+      background: var(--code-bg);
+      padding: 1px 5px;
+      border-radius: 3px;
+      color: var(--blue-dark);
+    }
+
+    .url-box {
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 10px 14px;
+      margin: 16px 0;
+      font-family: 'Courier New', monospace;
+      font-size: 0.78rem;
+      word-break: break-all;
+      color: var(--blue-dark);
+    }
+
+    /* ── Footer ── */
+    footer {
+      padding: 32px 0 48px;
+      font-size: 0.82rem;
+      color: var(--muted);
+      display: flex;
+      gap: 24px;
+      flex-wrap: wrap;
+    }
+
+    footer a { color: var(--muted); }
+    footer a:hover { color: var(--blue); }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+
+    <header>
+      <div class="badge">
+        <img src="icons/icon-32.png" alt="">
+        <span class="badge-label">Word add-in</span>
+      </div>
+      <h1>word-md</h1>
+      <p class="tagline">Paste Markdown into Word with proper styles applied — not as pasted-from-web junk, as native authored content.</p>
+      <div class="actions">
+        <a href="manifest.xml" class="btn btn-primary" download>Download manifest.xml</a>
+        <a href="https://github.com/m8urnett/word-md" class="btn btn-ghost">GitHub →</a>
+      </div>
+    </header>
+
+    <section>
+      <h2>What it does</h2>
+      <p>
+        word-md is a task pane add-in. Paste any Markdown — or load a <code>.md</code> file — and click Insert.
+        It walks the token tree and applies named Word styles to every block, so the result behaves like content
+        you typed with the ribbon: change the document's Heading&nbsp;2 definition and every H2 from your
+        markdown updates with it.
+      </p>
+      <ul class="features">
+        <li>Heading 1–6 → Word heading styles</li>
+        <li>Bullet and numbered lists</li>
+        <li>Fenced code blocks</li>
+        <li>Inline bold, italic, strikethrough</li>
+        <li>Inline code (Consolas + highlight)</li>
+        <li>Hyperlinks</li>
+        <li>Pipe tables → real Word tables</li>
+        <li>Blockquotes</li>
+        <li>YAML frontmatter stripping</li>
+        <li>Typographic quote conversion</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>Style map</h2>
+      <table>
+        <thead>
+          <tr><th>Markdown</th><th>Word style / treatment</th></tr>
+        </thead>
+        <tbody>
+          <tr><td># … ######</td><td>Heading 1–6</td></tr>
+          <tr><td>paragraph</td><td>Normal</td></tr>
+          <tr><td>* / - list</td><td>List Bullet</td></tr>
+          <tr><td>1. list</td><td>List Number</td></tr>
+          <tr><td>&gt; blockquote</td><td>Quote (children)</td></tr>
+          <tr><td>``` fenced code</td><td>HTML Preformatted (one para/line)</td></tr>
+          <tr><td>`code span`</td><td>Consolas + light highlight</td></tr>
+          <tr><td>[text](url)</td><td>Hyperlink</td></tr>
+          <tr><td>| pipe table |</td><td>Word table, Grid Table 4 – Accent 1</td></tr>
+          <tr><td>---</td><td>Paragraph with bottom border</td></tr>
+          <tr><td>- [x] task</td><td>☒ glyph + List Bullet</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>Install</h2>
+      <p>
+        No store account or admin access needed. Sideload the manifest directly in Word.
+        The manifest URL (you can paste this directly in the upload dialog on some platforms):
+      </p>
+      <div class="url-box">https://m8urnett.github.io/word-md/manifest.xml</div>
+
+      <div class="platform">
+        <div class="platform-title">Word for Windows or Mac</div>
+        <ol>
+          <li>Open Word. Go to <strong>Insert</strong> → <strong>Get Add-ins</strong>.</li>
+          <li>In the dialog: <strong>My Add-ins</strong> tab → <strong>Manage My Add-ins</strong> → <strong>Upload My Add-in</strong>.</li>
+          <li>Browse to <code>manifest.xml</code> (downloaded above) and click Upload.</li>
+          <li>The <strong>word-md</strong> group appears on the Home tab. Click <strong>Paste</strong> to open the pane.</li>
+        </ol>
+      </div>
+
+      <div class="platform">
+        <div class="platform-title">Word for the web</div>
+        <ol>
+          <li>Open a document at <a href="https://word.office.com">word.office.com</a>.</li>
+          <li><strong>Home</strong> → <strong>Add-ins</strong> → <strong>More Add-ins</strong> → <strong>Upload My Add-in</strong>.</li>
+          <li>Browse to <code>manifest.xml</code> and upload.</li>
+        </ol>
+      </div>
+
+      <div class="platform">
+        <div class="platform-title">Organisation-wide (Microsoft 365 admin)</div>
+        <ol>
+          <li>Go to the <a href="https://admin.microsoft.com">Microsoft 365 admin center</a> → <strong>Settings</strong> → <strong>Integrated apps</strong>.</li>
+          <li>Upload the manifest and assign to users. No review or AppSource account required.</li>
+        </ol>
+      </div>
+    </section>
+
+    <section>
+      <h2>Privacy</h2>
+      <p>
+        word-md processes no Markdown content outside your local Word session. The task pane
+        loads <code>office.js</code> from Microsoft, which is required by Office add-ins, and
+        loads the Markdown parser from this same hosted package. No pasted content is sent to
+        the project maintainer or to a project backend.
+      </p>
+    </section>
+
+    <footer>
+      <a href="https://github.com/m8urnett/word-md">GitHub</a>
+      <a href="manifest.xml" download>manifest.xml</a>
+      <a href="mailto:mb@xato.net">Contact</a>
+      <span>Built by <a href="https://xato.net">Mark Burnett</a></span>
+    </footer>
+
+  </div>
+</body>
+</html>
