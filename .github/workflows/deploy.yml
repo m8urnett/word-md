@@ -2,8 +2,8 @@ name: Deploy to m8urnett.github.io
 
 on:
   push:
-    branches: [main]
-
+    branches: [master]
+  workflow_dispatch:
 jobs:
   deploy:
     runs-on: ubuntu-latest
