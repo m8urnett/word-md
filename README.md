@@ -40,8 +40,7 @@ For detailed instructions on setting up a trusted catalog for local sideloading,
 
 1. Host these files at any HTTPS endpoint. Easiest: GitHub Pages.
    - The bundled `manifest.xml` points at `https://m8urnett.github.io/word-md/`.
-   - Sure, you could just use that URL but a it's horrible idea to ever do something like that.
-   - So fork it or host it somewhere else. 
+   - **Security Note:** Do not use the default URL for production or sensitive work. Hosting the manifest yourself ensures you control the code running in your environment. Fork this repo or host the static files on your own HTTPS origin.
 2. **Word for Windows/Mac**: Insert ribbon → Get Add-ins → My Add-ins
    (top of dialog) → Manage My Add-ins → **Upload My Add-in** → pick
    `manifest.xml`.
