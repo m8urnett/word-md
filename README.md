@@ -36,6 +36,8 @@ the Office task pane and written to the current selection through Word.js.
 
 ## Sideload installation
 
+For detailed instructions on setting up a trusted catalog for local sideloading, see [sideload.md](./sideload.md).
+
 1. Host these files at any HTTPS endpoint. Easiest: GitHub Pages.
    - The bundled `manifest.xml` points at `https://m8urnett.github.io/word-md/`.
    - Sure, you could just use that URL but a it's horrible idea to ever do something like that.
@@ -136,4 +138,3 @@ word-md/
 ├── SECURITY.md
 └── README.md
 ```
-
