@@ -1,0 +1,32 @@
+name: Deploy to m8urnett.github.io
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Checkout pages repo
+        uses: actions/checkout@v4
+        with:
+          repository: m8urnett/m8urnett.github.io
+          path: pages
+          token: ${{ secrets.PAGES_TOKEN }}
+
+      - name: Sync files
+        run: |
+          mkdir -p pages/word-md
+          rsync -a --delete --exclude='.git' --exclude='.github' ./ pages/word-md/
+
+      - name: Commit and push
+        run: |
+          cd pages
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git add word-md/
+          git diff --staged --quiet || git commit -m "sync word-md"
+          git push

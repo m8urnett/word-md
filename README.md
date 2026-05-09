@@ -1,7 +1,7 @@
 # Word-md — Word Add-in
 
-Word-md is a Microsoft Word task pane add-in for people who draft in Markdown
-but deliver in `.docx`.
+Word-md is a Microsoft Word task pane add-in that allows you paste markdown
+into word as formatted text.
 
 Paste Markdown, or load a local `.md` file, and word-md inserts it into the
 active document as native Word content: real Heading 1-6 styles, Word lists,
@@ -136,3 +136,4 @@ word-md/
 ├── SECURITY.md
 └── README.md
 ```
+

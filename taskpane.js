@@ -6,23 +6,20 @@
  * named Word style (Heading 1–6, List Bullet/Number, Quote, HTML Preformatted,
  * Normal). Inline runs (bold, italic, code, link, strikethrough) are applied
  * with `Range.font.*` after each `insertText`. One `context.sync()` at the end.
- *
- * Why not `insertHtml` for the whole thing? Because Word's HTML→style mapping
- * is approximate. `<pre>` doesn't reliably land on "HTML Preformatted",
- * `<blockquote>` is theme-dependent, and you lose precise control over named
- * styles. Walking the AST gives exact, named-style results that match content
- * a user typed using the ribbon.
  */
 
 (() => {
   "use strict";
 
+  // Safety limit to prevent memory exhaustion during parsing or Word insertion.
   const MAX_MARKDOWN_BYTES = 1024 * 1024;
+  const parser = new DOMParser();
 
   // ─────────────────────────────────────────────────────────────────────
   // Bootstrap
   // ─────────────────────────────────────────────────────────────────────
 
+  // Initialize the add-in and bind UI events once the Office host is ready.
   Office.onReady(info => {
     if (info.host !== Office.HostType.Word) {
       setStatus("This add-in runs in Word.", "error");
@@ -34,7 +31,7 @@
     document.getElementById("clear-btn").addEventListener("click", onClear);
     document.getElementById("file-input").addEventListener("change", onLoadFile);
 
-    // Ctrl/Cmd+Enter inserts
+    // Keyboard shortcut for power users: Ctrl/Cmd+Enter triggers the insert.
     document.getElementById("md-input").addEventListener("keydown", e => {
       if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
         e.preventDefault();
@@ -42,6 +39,7 @@
       }
     });
 
+    // Configure the Markdown parser (Marked) with GitHub Flavored Markdown.
     if (window.marked) {
       marked.use({ gfm: true, breaks: false });
     }
@@ -51,6 +49,7 @@
   // UI handlers
   // ─────────────────────────────────────────────────────────────────────
 
+  // Handles local file loading, ensuring the file doesn't exceed the safety limit.
   function onLoadFile(e) {
     const file = e.target.files[0];
     if (!file) return;
@@ -68,12 +67,14 @@
     reader.readAsText(file);
   }
 
+  // Generates a local HTML preview using safe DOM-building APIs.
   function onPreview() {
     setProcessing(true);
     try {
       const raw = document.getElementById("md-input").value;
       if (!isWithinSizeLimit(raw)) return;
       const md = preprocess(raw);
+      // Use marked.lexer to get tokens, then build the preview DOM tree.
       const previewEl = document.getElementById("preview");
       previewEl.replaceChildren(window.marked ? renderPreview(marked.lexer(md)) : plainPreview(md));
       previewEl.hidden = false;
@@ -92,6 +93,7 @@
     setStatus("");
   }
 
+  // Main entry point for inserting Markdown into the active Word document.
   async function onInsert() {
     const raw = document.getElementById("md-input").value;
     if (!raw.trim()) { setStatus("Nothing to insert.", "error"); return; }
@@ -104,10 +106,14 @@
       setStatus("Inserting…");
       const md = preprocess(raw);
       tokens = marked.lexer(md);
+      
+      // If the user checked "Replace selection", we delete the current range first.
       const replaceSel = document.getElementById("opt-replace").checked;
 
       await Word.run(async (context) => {
         const sel = context.document.getSelection();
+        
+        // We work with a 'cursor' (Range proxy) that moves forward as we insert content.
         if (replaceSel) sel.delete();
 
         let cursor = sel.getRange("End");
@@ -129,11 +135,13 @@
   // Preprocessing
   // ─────────────────────────────────────────────────────────────────────
 
+  // Applies optional transformations like stripping YAML frontmatter or converting to smart quotes.
   function preprocess(text) {
     let t = text;
     if (document.getElementById("opt-strip-frontmatter").checked) {
       t = t.replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/, "");
     }
+    // Smart quotes are applied via regex, avoiding changes inside code blocks.
     if (document.getElementById("opt-smart-quotes").checked) {
       t = smartQuotes(t);
     }
@@ -164,6 +172,7 @@
   // Block dispatch
   // ─────────────────────────────────────────────────────────────────────
 
+  // Dispatches a Markdown block token to the appropriate Word.js insertion function.
   function insertBlock(anchor, token, listLevel, opts = {}) {
     switch (token.type) {
       case "heading":    return insertHeading(anchor, token, opts);
@@ -188,6 +197,7 @@
     }
   }
 
+  // Inserts a paragraph and applies Word's Heading 1-6 styles.
   function insertHeading(anchor, token, opts) {
     const depth = Math.min(Math.max(token.depth || 1, 1), 9);
     const p = anchor.insertParagraph("", "After");
@@ -196,6 +206,7 @@
     return p.getRange("After");
   }
 
+  // Inserts a standard paragraph with Normal style.
   function insertParagraph(anchor, token, opts) {
     const p = anchor.insertParagraph("", "After");
     p.style = opts.quote ? "Quote" : "Normal";
@@ -203,6 +214,7 @@
     return p.getRange("After");
   }
 
+  // Recursively inserts blocks within a blockquote, applying the "Quote" style.
   function insertBlockquote(anchor, token) {
     let cursor = anchor;
     const inner = token.tokens || [];
@@ -212,6 +224,7 @@
     return cursor;
   }
 
+  // Handles fenced code blocks by inserting one paragraph per line to preserve formatting.
   function insertCode(anchor, token, opts) {
     // Multi-line fenced block: one paragraph per line so line breaks render
     // correctly with HTML Preformatted style.
@@ -227,6 +240,7 @@
     return cursor;
   }
 
+  // Inserts lists (bulleted or numbered) with support for GFM checkboxes and nesting.
   function insertList(anchor, listToken, level, opts) {
     const styleName = listToken.ordered ? "List Number" : "List Bullet";
     let cursor = anchor;
@@ -260,6 +274,7 @@
     return cursor;
   }
 
+  // Extracts inline tokens and nested block tokens from a list item's structure.
   function unpackListItem(item) {
     const inlineTokens = [];
     const nestedBlocks = [];
@@ -276,6 +291,7 @@
     return { inlineTokens, nestedBlocks };
   }
 
+  // Converts a Markdown table token into a native Word table with a built-in style.
   function insertTable(anchor, token) {
     const headerCells = (token.header || []).map(h => h.text || "");
     const dataRows    = (token.rows   || []).map(row => row.map(c => c.text || ""));
@@ -292,6 +308,7 @@
     return table.getRange("After");
   }
 
+  // Inserts a horizontal rule by applying a bottom border to an empty paragraph.
   function insertHr(anchor) {
     const p = anchor.insertParagraph("", "After");
     p.style = "Normal";
@@ -312,6 +329,7 @@
   // Inline runs
   // ─────────────────────────────────────────────────────────────────────
 
+  // Iterates through inline tokens (bold, italic, links) and applies them to the current paragraph.
   function insertInlines(paragraph, tokens, format) {
     for (const t of tokens) {
       switch (t.type) {
@@ -337,6 +355,7 @@
           const text = extractText(t) || t.href || "";
           const r = paragraph.insertText(text, "End");
           applyFormat(r, format);
+          // Only allow safe protocols to prevent XSS via links.
           const href = getSafeUrl(t.href);
           if (href) {
             try { r.hyperlink = href; } catch (_) {}
@@ -370,6 +389,7 @@
     }
   }
 
+  // Helper to apply font-level formatting (bold, italic, etc.) to a Word Range.
   function applyFormat(range, fmt) {
     if (!fmt) return;
     if (fmt.bold)   range.font.bold = true;
@@ -385,20 +405,23 @@
   // Helpers
   // ─────────────────────────────────────────────────────────────────────
 
+  // Recursively flattens a token's children into a plain string.
   function extractText(token) {
     if (!token) return "";
     if (token.tokens) return token.tokens.map(extractText).join("");
     return token.text || "";
   }
 
+  // Sanitizes raw HTML by extracting only the text content using DOMParser.
   function stripHtml(html) {
-    const doc = new DOMParser().parseFromString(html, "text/html");
+    const doc = parser.parseFromString(html, "text/html");
     return doc.body.textContent || "";
   }
 
+  // Decodes HTML entities (e.g., &amp;) to plain characters for Word.js insertion.
   function decodeEntities(s) {
     if (!s || (s.indexOf("&") === -1)) return s;
-    const doc = new DOMParser().parseFromString(s, "text/html");
+    const doc = parser.parseFromString(s, "text/html");
     return doc.documentElement.textContent || s;
   }
 
@@ -408,6 +431,7 @@
     return pre;
   }
 
+  // Builds a safe DocumentFragment for the task pane preview.
   function renderPreview(tokens) {
     const fragment = document.createDocumentFragment();
     for (const token of tokens) {
@@ -416,6 +440,7 @@
     return fragment;
   }
 
+  // Maps Markdown tokens to safe HTML elements for the preview.
   function renderPreviewBlock(token) {
     switch (token.type) {
       case "heading": {
@@ -478,6 +503,7 @@
     }
   }
 
+  // Generates the preview HTML table from Markdown table tokens.
   function renderPreviewTable(token) {
     const table = document.createElement("table");
     const thead = document.createElement("thead");
@@ -504,6 +530,7 @@
     return table;
   }
 
+  // Builds the inline content (text, strong, em, etc.) for a preview element using safe DOM APIs.
   function appendPreviewInlines(parent, tokens) {
     for (const token of tokens || []) {
       switch (token.type) {
@@ -569,10 +596,11 @@
     }
   }
 
+  // Validates a URL against an allowlist of protocols (http, https, mailto).
   function getSafeUrl(url) {
     if (!url) return false;
     try {
-      const parsed = new URL(url, window.location.href);
+      const parsed = new URL(url.trim(), window.location.href);
       if (!["http:", "https:", "mailto:"].includes(parsed.protocol)) return "";
       return parsed.href;
     } catch (_) {
@@ -587,6 +615,7 @@
     return false;
   }
 
+  // Toggles UI buttons during long-running operations.
   function setProcessing(isProcessing) {
     for (const id of ["insert-btn", "preview-btn", "clear-btn", "file-input"]) {
       document.getElementById(id).disabled = isProcessing;
